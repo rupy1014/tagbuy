@@ -10,11 +10,11 @@
 |------|-------------|-------------|
 | 인증 | 80% | 90% |
 | 인플루언서 | 95% | 90% |
-| 캠페인 | 0% | 60% |
+| 캠페인 | 90% | 60% |
 | 결제/에스크로 | 0% | 0% |
 | 콘텐츠 | 60% | 30% |
 | 관리자 | 40% | 70% |
-| **전체** | **~45%** | **~60%** |
+| **전체** | **~60%** | **~60%** |
 
 ---
 
@@ -22,22 +22,23 @@
 
 ### Backend API
 
-- [ ] **캠페인 CRUD API** `/api/v1/campaigns`
-  - [ ] `POST /campaigns` - 캠페인 생성
-  - [ ] `GET /campaigns` - 캠페인 목록 (페이지네이션, 필터)
-  - [ ] `GET /campaigns/{id}` - 캠페인 상세
-  - [ ] `PUT /campaigns/{id}` - 캠페인 수정
-  - [ ] `DELETE /campaigns/{id}` - 캠페인 삭제
-  - [ ] `POST /campaigns/{id}/publish` - 캠페인 게시
-  - [ ] `POST /campaigns/{id}/close` - 캠페인 종료
-  - [ ] 파일: `backend/app/api/v1/campaigns.py`
-  - [ ] 서비스: `backend/app/services/campaign_service.py`
+- [x] **캠페인 CRUD API** `/api/v1/campaigns` ✅
+  - [x] `POST /campaigns` - 캠페인 생성
+  - [x] `GET /campaigns` - 캠페인 목록 (페이지네이션, 필터)
+  - [x] `GET /campaigns/{id}` - 캠페인 상세
+  - [x] `PUT /campaigns/{id}` - 캠페인 수정
+  - [x] `DELETE /campaigns/{id}` - 캠페인 삭제
+  - [x] `POST /campaigns/{id}/publish` - 캠페인 게시
+  - [x] `POST /campaigns/{id}/close` - 캠페인 종료
+  - [x] 파일: `backend/app/api/v1/campaigns.py`
+  - [x] 서비스: `backend/app/services/campaign_service.py`
 
-- [ ] **캠페인 참여 API**
-  - [ ] `GET /campaigns/{id}/participants` - 참여자 목록
-  - [ ] `POST /campaigns/{id}/select-influencers` - 인플루언서 선택
-  - [ ] `POST /campaigns/{id}/apply` - 캠페인 지원 (인플루언서)
-  - [ ] `GET /influencer/applications` - 내 지원 목록
+- [x] **캠페인 참여 API** ✅
+  - [x] `GET /campaigns/{id}/participants` - 참여자 목록
+  - [x] `POST /campaigns/{id}/select` - 인플루언서 선택
+  - [x] `POST /campaigns/{id}/reject` - 인플루언서 거절
+  - [x] `POST /campaigns/{id}/apply` - 캠페인 지원 (인플루언서)
+  - [x] `GET /campaigns/me/applications` - 내 지원 목록
   - [ ] `DELETE /influencer/applications/{id}` - 지원 취소
 
 - [ ] **콘텐츠 제출 완성**
@@ -221,9 +222,9 @@
 ### Backend - 생성 필요
 
 ```
-backend/app/api/v1/campaigns.py
+backend/app/api/v1/campaigns.py ✅ (완료)
 backend/app/api/v1/payments.py
-backend/app/services/campaign_service.py
+backend/app/services/campaign_service.py ✅ (완료)
 backend/app/services/payment_service.py
 backend/app/services/escrow_service.py
 backend/app/services/notification_service.py
