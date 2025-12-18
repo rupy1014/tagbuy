@@ -68,6 +68,7 @@ interface InfluencerTableProps {
   onSelect?: (ids: string[]) => void;
   selectedIds?: string[];
   isLoading?: boolean;
+  onRowClick?: (influencer: Influencer) => void;
 }
 
 export function InfluencerTable({
@@ -83,6 +84,7 @@ export function InfluencerTable({
   onSelect,
   selectedIds = [],
   isLoading,
+  onRowClick,
 }: InfluencerTableProps) {
   const totalPages = Math.ceil(totalCount / limit);
   const startIndex = (page - 1) * limit + 1;
@@ -236,8 +238,9 @@ export function InfluencerTable({
               influencers.map((influencer) => (
                 <tr
                   key={influencer.id}
+                  onClick={() => onRowClick?.(influencer)}
                   className={cn(
-                    "hover:bg-muted/30 transition-colors",
+                    "hover:bg-muted/30 transition-colors cursor-pointer",
                     selectedIds.includes(influencer.id) && "bg-primary/5"
                   )}
                 >

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { FilterPanel } from "@/components/influencer/filter-panel";
 import { InfluencerTable } from "@/components/influencer/influencer-table";
+import { InfluencerDetailPanel } from "@/components/influencer/influencer-detail-panel";
 import type { Influencer, InfluencerSearchParams } from "@/types";
 import { cn, formatNumber, getPlatformLabel, getCategoryLabel } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -34,6 +35,15 @@ export default function InfluencersPage() {
   const [influencers, setInfluencers] = useState<Influencer[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
+
+  // Detail panel state
+  const [selectedInfluencer, setSelectedInfluencer] = useState<Influencer | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+
+  const handleRowClick = (influencer: Influencer) => {
+    setSelectedInfluencer(influencer);
+    setIsDetailOpen(true);
+  };
 
   // Fetch influencers from API
   const fetchInfluencers = useCallback(async () => {
@@ -266,11 +276,19 @@ export default function InfluencersPage() {
                 onSelect={setSelectedIds}
                 selectedIds={selectedIds}
                 isLoading={isLoading}
+                onRowClick={handleRowClick}
               />
             )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Influencer Detail Panel */}
+      <InfluencerDetailPanel
+        influencer={selectedInfluencer}
+        open={isDetailOpen}
+        onOpenChange={setIsDetailOpen}
+      />
     </div>
   );
 }
