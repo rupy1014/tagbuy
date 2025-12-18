@@ -6,7 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.core.constants import CampaignStatus
+from app.core.constants import CampaignStatus, PaymentStatus
 
 
 class CampaignBase(BaseModel):
@@ -133,3 +133,53 @@ class CampaignBriefResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ==================== Participant Schemas ====================
+
+class CampaignApplicationCreate(BaseModel):
+    """Application to campaign schema"""
+    message: Optional[str] = Field(default=None, max_length=1000)
+
+
+class CampaignParticipantResponse(BaseModel):
+    """Campaign participant response"""
+    id: UUID
+    campaign_id: UUID
+    influencer_id: UUID
+    application_message: Optional[str] = None
+    applied_at: datetime
+    is_selected: bool
+    selected_at: Optional[datetime] = None
+    rejection_reason: Optional[str] = None
+    agreed_amount: Optional[Decimal] = None
+    payment_status: PaymentStatus
+
+    class Config:
+        from_attributes = True
+
+
+class CampaignParticipantListResponse(BaseModel):
+    """Campaign participant list response"""
+    participants: List[CampaignParticipantResponse]
+    total: int
+    limit: int
+    offset: int
+
+
+class SelectInfluencerRequest(BaseModel):
+    """Select influencer request"""
+    influencer_id: UUID
+    agreed_amount: Optional[Decimal] = Field(default=None, gt=0)
+
+
+class RejectInfluencerRequest(BaseModel):
+    """Reject influencer request"""
+    influencer_id: UUID
+    reason: Optional[str] = Field(default=None, max_length=500)
+
+
+class CampaignStatsResponse(BaseModel):
+    """Campaign statistics response"""
+    total_applicants: int
+    selected_influencers: int
