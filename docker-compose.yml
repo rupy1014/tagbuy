@@ -1,0 +1,146 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: tagbuy-frontend
+    ports:
+      - "3100:3100"
+    environment:
+      - NEXT_PUBLIC_API_URL=/api
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - api
+    command: npm run dev -- -p 3100
+    networks:
+      - tagbuy-network
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tagbuy-api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/tagbuy
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - SECRET_KEY=dev-secret-key-change-in-production
+    volumes:
+      - ./backend:/app
+      - ./backend/sessions:/app/sessions
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - tagbuy-network
+
+  db:
+    image: postgres:15-alpine
+    container_name: tagbuy-db
+    environment:
+      POSTGRES_DB: tagbuy
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tagbuy-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: tagbuy-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - tagbuy-network
+
+  # Database initialization service (migrations + seeding)
+  db-init:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tagbuy-db-init
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/tagbuy
+    volumes:
+      - ./backend:/app
+      - ./scripts:/app/scripts
+      - ./tagby_all_influencers.json:/app/data/tagby_all_influencers.json:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "
+        echo '=== Running migrations ===' &&
+        alembic upgrade head &&
+        echo '=== Seeding data ===' &&
+        python /app/scripts/seed_influencers.py --json-path /app/data/tagby_all_influencers.json --database-url postgresql://postgres:postgres@db:5432/tagbuy &&
+        echo '=== Init complete ==='
+      "
+    networks:
+      - tagbuy-network
+
+  # Celery worker for background tasks
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tagbuy-celery-worker
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/tagbuy
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=development
+    volumes:
+      - ./backend:/app
+      - ./backend/sessions:/app/sessions
+    depends_on:
+      - db
+      - redis
+    command: echo "Celery worker placeholder - implement tasks first"
+    networks:
+      - tagbuy-network
+
+  # Celery beat for scheduled tasks
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tagbuy-celery-beat
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/tagbuy
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=development
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - db
+      - redis
+    command: echo "Celery beat placeholder - implement tasks first"
+    networks:
+      - tagbuy-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  tagbuy-network:
+    driver: bridge
