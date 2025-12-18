@@ -42,6 +42,9 @@ celery_app.conf.update(
     timezone="Asia/Seoul",
     enable_utc=True,
 
+    # 기본 큐 설정
+    task_default_queue="default",
+
     # 워커 설정
     worker_prefetch_multiplier=1,  # Rate limit 준수를 위해
     task_acks_late=True,

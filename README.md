@@ -62,9 +62,39 @@ cp frontend/.env.example frontend/.env
 ```
 
 ### 4. 접속
-- **Frontend**: http://localhost:3000
+- **Frontend**: http://localhost:3100
 - **API**: http://localhost:8000
 - **API Docs**: http://localhost:8000/docs
+
+---
+
+## 테스트 계정
+
+로컬 개발 환경에서 테스트용으로 사용할 수 있는 계정입니다.
+
+### 광고주 계정
+| 이메일 | 비밀번호 | 이름 | 회사명 |
+|--------|----------|------|--------|
+| demo@tagbuy.kr | demo1234 | 데모유저 | 데모회사 |
+
+### 인플루언서 계정
+| 이메일 | 비밀번호 | 이름 | Instagram |
+|--------|----------|------|-----------|
+| influencer@tagbuy.kr | demo1234 | 데모인플루언서 | @demo_influencer |
+
+### 테스트 계정 생성 방법
+```bash
+# 회원가입 API로 직접 생성
+curl -X POST "http://localhost:8000/api/v1/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@example.com",
+    "password": "test1234",
+    "name": "테스트유저",
+    "type": "advertiser",
+    "companyName": "테스트회사"
+  }'
+```
 
 ---
 
