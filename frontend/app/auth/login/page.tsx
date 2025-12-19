@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -19,23 +19,32 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
+// 데모 계정 기본값
+const DEMO_CREDENTIALS = {
+  email: "demo@tagbuy.kr",
+  password: "demo1234",
+};
+
 export default function LoginPage() {
   const router = useRouter();
   const { login, isLoading, error, clearError } = useAuthStore();
   const [showError, setShowError] = useState(false);
+  const [autoLoginAttempted, setAutoLoginAttempted] = useState(false);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
+    setValue,
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
+    defaultValues: DEMO_CREDENTIALS,
   });
 
-  const onSubmit = async (data: LoginFormData) => {
+  const performLogin = async (email: string, password: string) => {
     try {
       clearError();
-      await login(data.email, data.password);
+      await login(email, password);
       // Redirect based on user type
       const user = useAuthStore.getState().user;
       if (user?.type === "advertiser") {
@@ -45,7 +54,30 @@ export default function LoginPage() {
       } else if (user?.type === "admin") {
         router.push("/admin/dashboard");
       }
+      return true;
     } catch (err) {
+      return false;
+    }
+  };
+
+  // 자동 로그인 (개발 환경에서만)
+  useEffect(() => {
+    if (autoLoginAttempted) return;
+    setAutoLoginAttempted(true);
+
+    const autoLogin = async () => {
+      const success = await performLogin(DEMO_CREDENTIALS.email, DEMO_CREDENTIALS.password);
+      if (!success) {
+        setShowError(true);
+      }
+    };
+
+    autoLogin();
+  }, [autoLoginAttempted]);
+
+  const onSubmit = async (data: LoginFormData) => {
+    const success = await performLogin(data.email, data.password);
+    if (!success) {
       setShowError(true);
     }
   };

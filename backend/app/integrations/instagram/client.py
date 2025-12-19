@@ -65,6 +65,7 @@ class InstagramMediaInfo:
     play_count: Optional[int] = None
     taken_at: Optional[datetime] = None
     caption_text: Optional[str] = None
+    thumbnail_url: Optional[str] = None
     user: Optional[InstagramUserInfo] = None
 
 
@@ -388,6 +389,14 @@ class InstagramClient:
 
     def _convert_media(self, media: Media) -> InstagramMediaInfo:
         """Convert instagrapi Media to InstagramMediaInfo"""
+        # Get thumbnail URL - try different sources
+        thumbnail_url = None
+        if media.thumbnail_url:
+            thumbnail_url = str(media.thumbnail_url)
+        elif media.resources and len(media.resources) > 0:
+            # For carousel, get first resource
+            thumbnail_url = str(media.resources[0].thumbnail_url) if media.resources[0].thumbnail_url else None
+
         return InstagramMediaInfo(
             pk=str(media.pk),
             code=media.code,
@@ -397,4 +406,5 @@ class InstagramClient:
             play_count=media.play_count,
             taken_at=media.taken_at,
             caption_text=media.caption_text,
+            thumbnail_url=thumbnail_url,
         )

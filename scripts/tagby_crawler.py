@@ -259,7 +259,7 @@ class TagbyCrawler:
         all_influencers = []
 
         for page in range(1, max_pages + 1):
-            print(f"\n📄 페이지 {page}/{max_pages} 크롤링 중...")
+            print(f"\n📄 페이지 {page}/{max_pages} 새로고침 중...")
 
             result = self.search_influencers_v1(page=page, **filters)
 
@@ -306,7 +306,7 @@ class TagbyCrawler:
         all_influencers = []
 
         for page in range(1, max_pages + 1):
-            print(f"\n📄 페이지 {page}/{max_pages} 크롤링 중...")
+            print(f"\n📄 페이지 {page}/{max_pages} 새로고침 중...")
 
             result = self.search_influencers(page=page, size=size, **filters)
 

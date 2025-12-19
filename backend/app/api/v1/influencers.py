@@ -20,8 +20,11 @@ from app.schemas.influencer import (
     InfluencerSyncResponse,
     TrustAnalysis,
     EngagementMetrics,
+    InfluencerPostResponse,
+    InfluencerPostsResponse,
 )
 from app.services.influencer_service import InfluencerService
+from app.services.influencer_post_service import InfluencerPostService
 from app.integrations.instagram.services.user_service import InstagramUserService
 
 router = APIRouter(prefix="/influencers", tags=["influencers"])
@@ -245,4 +248,55 @@ async def analyze_trust(
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Instagram API error: {e.message}",
+        )
+
+
+@router.get("/{influencer_id}/posts", response_model=InfluencerPostsResponse)
+async def get_influencer_posts(
+    influencer_id: UUID,
+    limit: int = Query(default=6, ge=1, le=20),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get recent posts for an influencer.
+
+    Returns cached posts from the database.
+    Use POST /influencers/{id}/posts/crawl to fetch fresh data from Instagram.
+    """
+    service = InfluencerPostService(db)
+    posts = await service.get_recent_posts(influencer_id, limit)
+
+    return InfluencerPostsResponse(
+        posts=[InfluencerPostResponse.model_validate(p) for p in posts],
+        total=len(posts),
+        crawled_at=posts[0].crawled_at if posts else None,
+    )
+
+
+@router.post("/{influencer_id}/posts/crawl", response_model=InfluencerPostsResponse)
+async def crawl_influencer_posts(
+    influencer_id: UUID,
+    amount: int = Query(default=12, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Crawl recent posts for an influencer from Instagram.
+
+    This fetches fresh data from Instagram and updates the database.
+    Rate limited - use sparingly.
+    """
+    service = InfluencerPostService(db)
+
+    try:
+        posts = await service.crawl_influencer_posts(influencer_id, amount)
+
+        return InfluencerPostsResponse(
+            posts=[InfluencerPostResponse.model_validate(p) for p in posts],
+            total=len(posts),
+            crawled_at=posts[0].crawled_at if posts else None,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to crawl posts: {str(e)}",
         )

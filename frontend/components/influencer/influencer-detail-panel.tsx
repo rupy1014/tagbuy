@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,8 +30,10 @@ import {
   Calendar,
   BarChart3,
   UserPlus,
+  Loader2,
+  RefreshCw,
 } from "lucide-react";
-import type { Influencer, Platform } from "@/types";
+import type { Influencer, Platform, InfluencerPost, InfluencerPostsResponse } from "@/types";
 import {
   cn,
   formatNumber,
@@ -62,52 +65,119 @@ interface InfluencerDetailPanelProps {
   onOpenChange: (open: boolean) => void;
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+
 export function InfluencerDetailPanel({
   influencer,
   open,
   onOpenChange,
 }: InfluencerDetailPanelProps) {
-  if (!influencer) return null;
+  const [posts, setPosts] = useState<InfluencerPost[]>([]);
+  const [postsLoading, setPostsLoading] = useState(false);
+  const [crawling, setCrawling] = useState(false);
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // 가상의 최근 게시물 데이터 (실제로는 API에서 가져와야 함)
-  const recentPosts = [
-    {
-      id: "1",
-      imageUrl: `https://picsum.photos/seed/${influencer.id}1/200/200`,
-      likes: Math.floor(influencer.avgLikes * 1.2),
-      comments: Math.floor(influencer.avgComments * 1.1),
-    },
-    {
-      id: "2",
-      imageUrl: `https://picsum.photos/seed/${influencer.id}2/200/200`,
-      likes: Math.floor(influencer.avgLikes * 0.9),
-      comments: Math.floor(influencer.avgComments * 0.8),
-    },
-    {
-      id: "3",
-      imageUrl: `https://picsum.photos/seed/${influencer.id}3/200/200`,
-      likes: Math.floor(influencer.avgLikes * 1.1),
-      comments: Math.floor(influencer.avgComments * 1.2),
-    },
-    {
-      id: "4",
-      imageUrl: `https://picsum.photos/seed/${influencer.id}4/200/200`,
-      likes: Math.floor(influencer.avgLikes * 0.95),
-      comments: Math.floor(influencer.avgComments * 1.0),
-    },
-    {
-      id: "5",
-      imageUrl: `https://picsum.photos/seed/${influencer.id}5/200/200`,
-      likes: Math.floor(influencer.avgLikes * 1.05),
-      comments: Math.floor(influencer.avgComments * 0.9),
-    },
-    {
-      id: "6",
-      imageUrl: `https://picsum.photos/seed/${influencer.id}6/200/200`,
-      likes: Math.floor(influencer.avgLikes * 0.85),
-      comments: Math.floor(influencer.avgComments * 1.15),
-    },
-  ];
+  // 인플루언서 프로필 URL
+  const profileUrl = influencer?.landingUrl || (influencer ? getPlatformUrl(influencer.platform, influencer.username) : "");
+
+  // API 응답 (snake_case)을 프론트엔드 타입 (camelCase)으로 변환
+  const mapPostResponse = (post: any): InfluencerPost => ({
+    id: post.id,
+    influencerId: post.influencer_id,
+    platform: post.platform,
+    mediaPk: post.media_pk,
+    shortcode: post.shortcode,
+    mediaType: post.media_type,
+    thumbnailUrl: post.thumbnail_url,
+    postUrl: post.post_url,
+    caption: post.caption,
+    likeCount: post.like_count,
+    commentCount: post.comment_count,
+    playCount: post.play_count,
+    postedAt: post.posted_at,
+    crawledAt: post.crawled_at,
+  });
+
+  // 게시물 데이터 가져오기
+  const fetchPosts = async () => {
+    if (!influencer) return;
+    setPostsLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/v1/influencers/${influencer.id}/posts?limit=6`);
+      if (response.ok) {
+        const data = await response.json();
+        setPosts(data.posts.map(mapPostResponse));
+      }
+    } catch (error) {
+      console.error("Failed to fetch posts:", error);
+    } finally {
+      setPostsLoading(false);
+    }
+  };
+
+  // 게시물 크롤링 요청
+  const crawlPosts = async () => {
+    if (!influencer) return;
+    setCrawling(true);
+    try {
+      const response = await fetch(`${API_URL}/v1/influencers/${influencer.id}/posts/crawl?amount=12`, {
+        method: "POST",
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setPosts(data.posts.map(mapPostResponse));
+        setFailedImages(new Set()); // 새로고침 후 실패 목록 초기화
+      }
+    } catch (error) {
+      console.error("Failed to crawl posts:", error);
+    } finally {
+      setCrawling(false);
+    }
+  };
+
+  // 이미지 로드 실패 시 처리
+  const handleImageError = async (postId: string) => {
+    // 이미 실패 기록된 이미지면 무시 (무한루프 방지)
+    if (failedImages.has(postId)) return;
+
+    setFailedImages(prev => new Set(prev).add(postId));
+
+    // 이미 새로고침 중이면 무시
+    if (isRefreshing || crawling) return;
+
+    // 자동으로 새로고침 시도 (디바운스를 위해 약간의 딜레이)
+    setIsRefreshing(true);
+    setTimeout(async () => {
+      if (!influencer) return;
+      try {
+        const response = await fetch(`${API_URL}/v1/influencers/${influencer.id}/posts/crawl?amount=12`, {
+          method: "POST",
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setPosts(data.posts.map(mapPostResponse));
+          setFailedImages(new Set()); // 새로고침 후 실패 목록 초기화
+        }
+      } catch (error) {
+        console.error("Failed to refresh posts:", error);
+      } finally {
+        setIsRefreshing(false);
+      }
+    }, 500);
+  };
+
+  // 패널 열릴 때 게시물 가져오기
+  useEffect(() => {
+    if (open && influencer) {
+      setPosts([]);
+      setFailedImages(new Set());
+      setIsRefreshing(false);
+      fetchPosts();
+    }
+  }, [open, influencer?.id]);
+
+  if (!influencer) return null;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -314,36 +384,91 @@ export function InfluencerDetailPanel({
 
         {/* Recent Posts */}
         <div className="mb-6">
-          <h3 className="font-semibold text-sm flex items-center gap-2 mb-4">
-            <ImageIcon className="h-4 w-4" />
-            최근 게시물
-          </h3>
-          <div className="grid grid-cols-3 gap-2">
-            {recentPosts.map((post) => (
-              <div
-                key={post.id}
-                className="relative aspect-square rounded-lg overflow-hidden bg-muted group cursor-pointer"
-              >
-                <img
-                  src={post.imageUrl}
-                  alt=""
-                  className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <div className="flex items-center gap-3 text-white text-xs">
-                    <span className="flex items-center gap-1">
-                      <Heart className="h-3 w-3" />
-                      {formatNumber(post.likes)}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MessageCircle className="h-3 w-3" />
-                      {formatNumber(post.comments)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-sm flex items-center gap-2">
+              <ImageIcon className="h-4 w-4" />
+              최근 게시물
+            </h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={crawlPosts}
+              disabled={crawling || isRefreshing}
+              className="h-7 text-xs"
+            >
+              {crawling || isRefreshing ? (
+                <Loader2 className="h-3 w-3 animate-spin mr-1" />
+              ) : (
+                <RefreshCw className="h-3 w-3 mr-1" />
+              )}
+              {crawling ? "새로고침 중..." : isRefreshing ? "이미지 새로고침..." : "새로고침"}
+            </Button>
           </div>
+
+          {postsLoading ? (
+            <div className="flex items-center justify-center h-32">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : posts.length > 0 ? (
+            <div className="grid grid-cols-3 gap-2">
+              {posts.slice(0, 6).map((post) => (
+                <a
+                  key={post.id}
+                  href={post.postUrl || profileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="relative aspect-square rounded-lg overflow-hidden bg-muted group cursor-pointer block"
+                >
+                  {post.thumbnailUrl && !failedImages.has(post.id) ? (
+                    <img
+                      src={post.thumbnailUrl}
+                      alt=""
+                      className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                      onError={() => handleImageError(post.id)}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-muted">
+                      {isRefreshing ? (
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      ) : (
+                        <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                      )}
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <div className="flex items-center gap-3 text-white text-xs">
+                      <span className="flex items-center gap-1">
+                        <Heart className="h-3 w-3" />
+                        {formatNumber(post.likeCount)}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <MessageCircle className="h-3 w-3" />
+                        {formatNumber(post.commentCount)}
+                      </span>
+                    </div>
+                  </div>
+                </a>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <ImageIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm mb-3">게시물이 없습니다</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={crawlPosts}
+                disabled={crawling}
+              >
+                {crawling ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                Instagram에서 가져오기
+              </Button>
+            </div>
+          )}
         </div>
 
         <Separator className="mb-6" />

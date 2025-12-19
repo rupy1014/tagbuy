@@ -10,6 +10,7 @@ from app.models.payment import (
     InfluencerBalance,
     Withdrawal,
 )
+from app.models.influencer_post import InfluencerPost
 
 __all__ = [
     "User",
@@ -25,4 +26,5 @@ __all__ = [
     "EscrowRelease",
     "InfluencerBalance",
     "Withdrawal",
+    "InfluencerPost",
 ]

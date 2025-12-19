@@ -151,3 +151,31 @@ class EngagementMetrics(BaseModel):
     avg_comments: int
     engagement_rate: float
     posts_analyzed: int
+
+
+class InfluencerPostResponse(BaseModel):
+    """Influencer post response schema"""
+    id: UUID
+    influencer_id: UUID
+    platform: str
+    media_pk: str
+    shortcode: Optional[str] = None
+    media_type: int  # 1=photo, 2=video, 8=carousel
+    thumbnail_url: Optional[str] = None
+    post_url: Optional[str] = None
+    caption: Optional[str] = None
+    like_count: int = 0
+    comment_count: int = 0
+    play_count: Optional[int] = None
+    posted_at: Optional[datetime] = None
+    crawled_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class InfluencerPostsResponse(BaseModel):
+    """Response containing list of influencer posts"""
+    posts: List[InfluencerPostResponse]
+    total: int
+    crawled_at: Optional[datetime] = None

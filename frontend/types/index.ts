@@ -324,3 +324,27 @@ export interface InfluencerBalance {
   totalEarned: number;
   totalWithdrawn: number;
 }
+
+// Influencer Post Types
+export interface InfluencerPost {
+  id: string;
+  influencerId: string;
+  platform: Platform;
+  mediaPk: string;
+  shortcode?: string;
+  mediaType: number; // 1=photo, 2=video, 8=carousel
+  thumbnailUrl?: string;
+  postUrl?: string;
+  caption?: string;
+  likeCount: number;
+  commentCount: number;
+  playCount?: number;
+  postedAt?: string;
+  crawledAt?: string;
+}
+
+export interface InfluencerPostsResponse {
+  posts: InfluencerPost[];
+  total: number;
+  crawledAt?: string;
+}
