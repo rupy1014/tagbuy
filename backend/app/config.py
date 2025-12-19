@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     # Bootpay
     bootpay_application_id: Optional[str] = None
     bootpay_private_key: Optional[str] = None
+    bootpay_sandbox: bool = True  # Use sandbox for development
 
     # Paths
     sessions_dir: str = "sessions"

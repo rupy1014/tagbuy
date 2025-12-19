@@ -7,6 +7,7 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
+    ForeignKey,
     Integer,
     Numeric,
     String,
@@ -33,6 +34,14 @@ class Influencer(Base):
     __tablename__ = "influencers"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+
+    # User relation (optional - influencer may not have signed up)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id"),
+        nullable=True,
+        index=True,
+    )
 
     # Platform identifiers - using String instead of Enum for compatibility with existing data
     platform = Column(
@@ -96,6 +105,7 @@ class Influencer(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=datetime.utcnow)
 
     # Relationships
+    user = relationship("User", backref="influencer_profiles")
     campaign_participations = relationship(
         "CampaignInfluencer",
         back_populates="influencer"

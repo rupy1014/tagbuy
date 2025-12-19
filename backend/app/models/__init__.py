@@ -3,6 +3,13 @@ from app.models.user import User
 from app.models.influencer import Influencer, Platform
 from app.models.campaign import Campaign, CampaignInfluencer
 from app.models.content import CampaignContent, ContentMetrics, MonitoringLog
+from app.models.payment import (
+    Payment,
+    EscrowTransaction,
+    EscrowRelease,
+    InfluencerBalance,
+    Withdrawal,
+)
 
 __all__ = [
     "User",
@@ -13,4 +20,9 @@ __all__ = [
     "CampaignContent",
     "ContentMetrics",
     "MonitoringLog",
+    "Payment",
+    "EscrowTransaction",
+    "EscrowRelease",
+    "InfluencerBalance",
+    "Withdrawal",
 ]

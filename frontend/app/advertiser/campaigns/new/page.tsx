@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,8 +14,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, ArrowRight, Check, DollarSign } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, DollarSign, Loader2, AlertCircle } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { api } from "@/lib/api";
+import { useBootpayWidget } from "@/hooks/usePayment";
 
 const STEPS = [
   { id: 1, title: "기본 정보" },
@@ -39,7 +41,23 @@ const CATEGORIES = [
 
 export default function NewCampaignPage() {
   const router = useRouter();
+  const {
+    isScriptLoaded,
+    isWidgetReady,
+    isTermsAccepted,
+    selectedMethod,
+    error: widgetError,
+    renderWidget,
+    requestPayment,
+    updatePrice,
+    destroyWidget,
+  } = useBootpayWidget();
+
   const [currentStep, setCurrentStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [createdCampaignId, setCreatedCampaignId] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
     // Step 1
     title: "",
@@ -64,12 +82,40 @@ export default function NewCampaignPage() {
     hashtags: "",
     // Step 5
     pgFeePayerIsAdvertiser: true,
-    paymentMethod: "card",
   });
+
+  // Calculate costs
+  const escrowFee = formData.budget * 0.005;
+  const totalCost = formData.budget + escrowFee;
 
   const updateFormData = (field: string, value: string | number | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
+
+  // Render widget when entering step 5
+  useEffect(() => {
+    if (currentStep === 5 && isScriptLoaded) {
+      // Small delay to ensure DOM is ready
+      const timer = setTimeout(() => {
+        renderWidget("bootpay-widget", totalCost);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [currentStep, isScriptLoaded, totalCost, renderWidget]);
+
+  // Update widget price when budget changes
+  useEffect(() => {
+    if (currentStep === 5 && isWidgetReady) {
+      updatePrice(totalCost);
+    }
+  }, [totalCost, currentStep, isWidgetReady, updatePrice]);
+
+  // Cleanup widget when leaving step 5
+  useEffect(() => {
+    return () => {
+      destroyWidget();
+    };
+  }, [destroyWidget]);
 
   const handleNext = () => {
     if (currentStep < 5) {
@@ -79,21 +125,65 @@ export default function NewCampaignPage() {
 
   const handleBack = () => {
     if (currentStep > 1) {
+      if (currentStep === 5) {
+        destroyWidget();
+      }
       setCurrentStep(currentStep - 1);
     }
   };
 
-  const handleSubmit = () => {
-    // TODO: Submit campaign
-    console.log("Submit campaign:", formData);
-    router.push("/advertiser/campaigns");
+  const handleSubmit = async () => {
+    if (!isTermsAccepted) {
+      setSubmitError("결제를 진행하려면 약관에 동의해주세요.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      // Step 1: Create campaign (draft)
+      const campaignPayload = {
+        title: formData.title,
+        description: formData.description,
+        budget: formData.budget,
+        per_influencer_budget: formData.rewardPerInfluencer,
+        pg_fee_payer: formData.pgFeePayerIsAdvertiser ? "advertiser" : "influencer",
+        target_follower_min: formData.minFollowers,
+        target_follower_max: formData.maxFollowers,
+        min_engagement_rate: formData.minEngagementRate,
+        max_influencers: formData.targetInfluencerCount,
+        target_categories: formData.category ? [formData.category] : [],
+        required_hashtags: formData.hashtags ? formData.hashtags.split(" ").filter(Boolean) : [],
+        settlement_days: getSettlementDays(formData.settlementRule),
+        start_date: formData.startDate ? new Date(formData.startDate).toISOString() : null,
+        end_date: formData.endDate ? new Date(formData.endDate).toISOString() : null,
+        guidelines: formData.productDescription,
+      };
+
+      const campaign = await api.createCampaign(campaignPayload as any);
+      setCreatedCampaignId(campaign.id);
+
+      // Step 2: Generate order info
+      const orderId = `CAMP_${campaign.id}_${Date.now()}`;
+      const orderName = `캠페인: ${formData.title}`;
+      const redirectUrl = `${window.location.origin}/advertiser/campaigns/payment-result?campaign_id=${campaign.id}`;
+
+      // Step 3: Request payment via BootpayWidget (will redirect)
+      await requestPayment(orderId, orderName, redirectUrl);
+
+      // Note: If we reach here without redirect, something went wrong
+      // The payment should redirect to redirectUrl
+    } catch (error) {
+      console.error("Campaign creation error:", error);
+      setSubmitError(
+        error instanceof Error ? error.message : "캠페인 생성 중 오류가 발생했습니다"
+      );
+      setIsSubmitting(false);
+    }
   };
 
-  // Calculate costs
-  const escrowFee = formData.budget * 0.005;
-  const pgFeeRate = formData.paymentMethod === "card" ? 0.025 : 0.003;
-  const pgFee = formData.budget * pgFeeRate;
-  const totalCost = formData.budget + escrowFee + (formData.pgFeePayerIsAdvertiser ? pgFee : 0);
+  const displayError = submitError || widgetError?.message;
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -141,6 +231,17 @@ export default function NewCampaignPage() {
           </span>
         ))}
       </div>
+
+      {/* Error Display */}
+      {displayError && (
+        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
+          <div>
+            <p className="font-medium text-destructive">오류가 발생했습니다</p>
+            <p className="text-sm text-destructive/80">{displayError}</p>
+          </div>
+        </div>
+      )}
 
       {/* Step Content */}
       <Card>
@@ -367,6 +468,7 @@ export default function NewCampaignPage() {
           {currentStep === 5 && (
             <>
               <div className="space-y-4">
+                {/* PG Fee Payer Selection */}
                 <div className="space-y-2">
                   <Label>PG 수수료 부담 주체</Label>
                   <div className="grid grid-cols-2 gap-4">
@@ -393,34 +495,9 @@ export default function NewCampaignPage() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>결제 수단</Label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <button
-                      type="button"
-                      onClick={() => updateFormData("paymentMethod", "virtual")}
-                      className={`p-4 border rounded-lg text-left ${
-                        formData.paymentMethod === "virtual" ? "border-primary bg-primary/5" : ""
-                      }`}
-                    >
-                      <p className="font-medium">가상계좌</p>
-                      <p className="text-sm text-muted-foreground">PG 0.3% (추천)</p>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => updateFormData("paymentMethod", "card")}
-                      className={`p-4 border rounded-lg text-left ${
-                        formData.paymentMethod === "card" ? "border-primary bg-primary/5" : ""
-                      }`}
-                    >
-                      <p className="font-medium">카드 결제</p>
-                      <p className="text-sm text-muted-foreground">PG 2.5%</p>
-                    </button>
-                  </div>
-                </div>
-
                 <Separator />
 
+                {/* Cost Summary */}
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>광고비</span>
@@ -430,17 +507,47 @@ export default function NewCampaignPage() {
                     <span>에스크로 수수료 (0.5%)</span>
                     <span>{formatCurrency(escrowFee)}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span>PG 수수료 ({(pgFeeRate * 100).toFixed(1)}%)</span>
-                    <span>
-                      {formData.pgFeePayerIsAdvertiser ? formatCurrency(pgFee) : "인플루언서 부담"}
-                    </span>
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>PG 수수료</span>
+                    <span>결제 수단에 따라 상이</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between font-semibold">
-                    <span>총 결제 금액</span>
+                    <span>기본 결제 금액</span>
                     <span className="text-primary">{formatCurrency(totalCost)}</span>
                   </div>
+                </div>
+
+                <Separator />
+
+                {/* Bootpay Widget Container */}
+                <div className="space-y-2">
+                  <Label>결제 수단 선택</Label>
+                  <div
+                    id="bootpay-widget"
+                    className="min-h-[300px] border rounded-lg bg-white"
+                  >
+                    {!isScriptLoaded && (
+                      <div className="flex items-center justify-center h-[300px]">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                        <span className="ml-2 text-muted-foreground">결제 모듈 로딩 중...</span>
+                      </div>
+                    )}
+                  </div>
+                  {selectedMethod && (
+                    <p className="text-sm text-muted-foreground">
+                      선택된 결제 수단: <span className="font-medium">{selectedMethod}</span>
+                    </p>
+                  )}
+                </div>
+
+                {/* Terms Notice */}
+                <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground">
+                  <p>* 결제 완료 후 에스크로에 예치되며, 인플루언서 콘텐츠 승인 후 자동 정산됩니다.</p>
+                  <p>* 캠페인 취소 시 수수료를 제외한 금액이 환불됩니다.</p>
+                  {!isTermsAccepted && isWidgetReady && (
+                    <p className="text-amber-600 mt-2">* 결제를 진행하려면 위의 약관에 동의해주세요.</p>
+                  )}
                 </div>
               </div>
             </>
@@ -450,7 +557,7 @@ export default function NewCampaignPage() {
 
       {/* Navigation */}
       <div className="flex justify-between">
-        <Button variant="outline" onClick={handleBack} disabled={currentStep === 1}>
+        <Button variant="outline" onClick={handleBack} disabled={currentStep === 1 || isSubmitting}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           이전
         </Button>
@@ -460,12 +567,38 @@ export default function NewCampaignPage() {
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         ) : (
-          <Button onClick={handleSubmit}>
-            <DollarSign className="mr-2 h-4 w-4" />
-            결제하고 캠페인 시작
+          <Button
+            onClick={handleSubmit}
+            disabled={isSubmitting || !isTermsAccepted}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                처리 중...
+              </>
+            ) : (
+              <>
+                <DollarSign className="mr-2 h-4 w-4" />
+                결제하고 캠페인 시작
+              </>
+            )}
           </Button>
         )}
       </div>
     </div>
   );
+}
+
+// Helper function
+function getSettlementDays(rule: string): number {
+  switch (rule) {
+    case "immediate":
+      return 1;
+    case "short":
+      return 3;
+    case "long":
+      return 30;
+    default:
+      return 7;
+  }
 }

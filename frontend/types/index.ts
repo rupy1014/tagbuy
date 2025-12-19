@@ -271,3 +271,56 @@ export interface PaginatedResponse<T> {
   limit: number;
   totalPages: number;
 }
+
+// Payment Types
+export interface PaymentPrepareResponse {
+  orderId: string;
+  orderName: string;
+  price: number;
+  campaignBudget: number;
+  escrowFee: number;
+  pgFeeEstimate: number;
+  pgFeePayer: "advertiser" | "influencer";
+}
+
+export interface PaymentVerifyResponse {
+  success: boolean;
+  paymentId: string;
+  escrowId: string;
+  message: string;
+}
+
+export interface PaymentRecord {
+  id: string;
+  receiptId: string;
+  orderId: string;
+  method: string;
+  methodName: string;
+  price: number;
+  status: string;
+  statusLocale: string;
+  campaignId: string;
+  purchasedAt: string;
+  createdAt: string;
+}
+
+export interface EscrowInfo {
+  id: string;
+  campaignId: string;
+  totalAmount: number;
+  escrowFee: number;
+  pgFee: number;
+  netAmount: number;
+  releasedAmount: number;
+  remainingAmount: number;
+  status: "pending" | "deposited" | "partially_released" | "released" | "refunded" | "cancelled";
+  depositedAt: string;
+  createdAt: string;
+}
+
+export interface InfluencerBalance {
+  availableBalance: number;
+  pendingBalance: number;
+  totalEarned: number;
+  totalWithdrawn: number;
+}
