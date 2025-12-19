@@ -28,6 +28,7 @@ celery_app = Celery(
         "app.tasks.campaign_matcher",
         "app.tasks.metrics_collector",
         "app.tasks.content_checker",
+        "app.tasks.influencer_crawler",
     ]
 )
 
@@ -61,6 +62,7 @@ celery_app.conf.update(
         "app.tasks.post_scanner.fetch_influencer_posts": {"queue": "instagram_api"},
         "app.tasks.metrics_collector.collect_single_content_metrics": {"queue": "instagram_api"},
         "app.tasks.content_checker.verify_content_exists": {"queue": "instagram_api"},
+        "app.tasks.influencer_crawler.crawl_single_influencer": {"queue": "instagram_api"},
     },
 
     # Rate Limit 설정 (instagram_api 큐)
@@ -74,12 +76,15 @@ celery_app.conf.update(
         "app.tasks.content_checker.verify_content_exists": {
             "rate_limit": "20/m"
         },
+        "app.tasks.influencer_crawler.crawl_single_influencer": {
+            "rate_limit": "20/m"
+        },
     }
 )
 
 # Beat 스케줄 (주기적 태스크)
 celery_app.conf.beat_schedule = {
-    # 새 게시글 스캔 (30분마다)
+    # 새 게시글 스캔 (30분마다) - 활성 캠페인용
     "scan-active-campaigns": {
         "task": "app.tasks.post_scanner.scan_active_campaigns",
         "schedule": crontab(minute="*/30"),
@@ -97,6 +102,20 @@ celery_app.conf.beat_schedule = {
     "check-content-existence": {
         "task": "app.tasks.content_checker.check_content_existence",
         "schedule": crontab(hour="*/6", minute=30),
+        "options": {"queue": "default"}
+    },
+
+    # 인플루언서 게시물 크롤링 (6시간마다)
+    "crawl-all-influencers": {
+        "task": "app.tasks.influencer_crawler.crawl_all_influencers",
+        "schedule": crontab(hour="*/6", minute=0),
+        "options": {"queue": "default"}
+    },
+
+    # 오래된 썸네일 갱신 (매일 새벽 3시)
+    "refresh-stale-thumbnails": {
+        "task": "app.tasks.influencer_crawler.refresh_stale_thumbnails",
+        "schedule": crontab(hour=3, minute=0),
         "options": {"queue": "default"}
     },
 }

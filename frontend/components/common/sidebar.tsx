@@ -16,6 +16,10 @@ import {
   Database,
   BarChart3,
   AlertCircle,
+  Star,
+  PieChart,
+  User,
+  Building2,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -27,9 +31,11 @@ interface SidebarProps {
 const advertiserNavItems = [
   { href: "/advertiser/dashboard", icon: LayoutDashboard, label: "대시보드" },
   { href: "/advertiser/campaigns", icon: Megaphone, label: "캠페인" },
-  { href: "/advertiser/influencers", icon: Users, label: "인플루언서 검색" },
+  { href: "/advertiser/influencers", icon: Search, label: "인플루언서 탐색" },
+  { href: "/advertiser/favorites", icon: Star, label: "즐겨찾기" },
+  { href: "/advertiser/reports", icon: PieChart, label: "리포트" },
   { href: "/advertiser/payments", icon: DollarSign, label: "결제 내역" },
-  { href: "/advertiser/settings", icon: Settings, label: "설정" },
+  { href: "/advertiser/mypage", icon: User, label: "마이페이지" },
 ];
 
 const influencerNavItems = [

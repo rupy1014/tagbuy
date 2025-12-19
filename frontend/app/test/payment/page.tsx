@@ -7,36 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 
+// Import type from hooks/usePayment.ts - BootpayWidget type is declared there
+import "@/hooks/usePayment";
+
 // Bootpay Application ID
 const BOOTPAY_APPLICATION_ID = process.env.NEXT_PUBLIC_BOOTPAY_APPLICATION_ID || "";
-
-// BootpayWidget 타입 선언
-declare global {
-  interface Window {
-    BootpayWidget: {
-      render: (selector: string, config: {
-        application_id: string;
-        price: number;
-        sandbox?: boolean;
-        use_terms?: boolean;
-        extra?: Record<string, any>;
-        hooks?: {
-          ready?: (data: any) => void;
-          allTermsAccepted?: (data: any) => void;
-          resize?: (data: { height: number }) => void;
-          paymentMethodUpdated?: (data: { method: string }) => void;
-        };
-      }) => void;
-      requestPayment: (params: {
-        order_name: string;
-        order_id: string;
-        redirect_url: string;
-      }) => Promise<void>;
-      update: (config: Record<string, any>) => void;
-      destroy: () => void;
-    };
-  }
-}
 
 export default function TestPaymentPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -58,7 +33,7 @@ export default function TestPaymentPage() {
     if (scriptLoadedRef.current) return;
 
     // 이미 로드되어 있는지 확인
-    if (window.BootpayWidget?.render) {
+    if (typeof window !== "undefined" && "BootpayWidget" in window) {
       addLog("BootpayWidget SDK 이미 로드됨");
       setIsScriptLoaded(true);
       scriptLoadedRef.current = true;

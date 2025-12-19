@@ -13,7 +13,7 @@ export type PaymentMethod = "card" | "vbank" | "bank" | "kakao" | "naver" | "tos
 // BootpayWidget global type declaration
 declare global {
   interface Window {
-    BootpayWidget: {
+    BootpayWidget?: {
       render: (selector: string, config: BootpayWidgetConfig) => void;
       requestPayment: (params: BootpayPaymentParams) => Promise<void>;
       update: (config: Partial<BootpayWidgetConfig>) => void;
@@ -142,7 +142,7 @@ export function useBootpayWidget(): UseBootpayWidgetReturn {
             setSelectedMethod(data.method);
             // Update card quota for card payments
             if (data.method === "card") {
-              window.BootpayWidget.update({
+              window.BootpayWidget?.update({
                 extra: { card_quota: [0, 2, 3, 4, 5, 6] },
               });
             }
